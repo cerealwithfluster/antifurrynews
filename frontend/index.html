@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Main Site</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        
+        body {
+            background-color: #1a202c;
+            color: #e2e8f0;
+        }
+
+       
+        .sidebar {
+            width: 250px;
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: -250px;
+            background-color: #2d3748;
+            transition: left 0.3s ease;
+        }
+
+        .sidebar.show {
+            left: 0;
+        }
+
+        .sidebar .close-btn {
+            cursor: pointer;
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
+
+        .sidebar .close-btn:hover {
+            color: #cbd5e0;
+        }
+
+        .container {
+            margin-left: 250px;
+          
+            max-width: 800px;
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+        }
+
+        .article {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #4a5568;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .article h2 {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            color: #cbd5e0;
+        }
+
+        .article p {
+            font-size: 1rem;
+            margin-bottom: 10px;
+        }
+
+    
+        .profile {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            align-items: center;
+        }
+
+        .profile img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+
+        .profile-card {
+            background-color: #7289da; 
+            color: #ffffff;
+            padding: 20px; 
+            border-radius: 10px;
+            display: none;
+            z-index: 999;
+            width: 100%; 
+        }
+
+        .profile-card img {
+            width: 80px; 
+            height: 80px; 
+            border-radius: 50%;
+            margin-right: 20px;
+        }
+
+   
+        .dashboard-btn {
+            background-color: #4CAF50; 
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin-top: 10px; 
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background-color 0.3s;
+        }
+
+        .dashboard-btn:hover {
+            background-color: #45a049; 
+        }
+
+    </style>
+</head>
+
+<body>
+
+<div class="sidebar" id="sidebar">
+    <div class="close-btn" onclick="toggleSidebar()">Close</div>
+  
+    <div class="profile-card" id="profileCard">
+        <img src="" alt="Profile Picture" id="profilePicture">
+        <div>
+            <p id="profileName"></p>
+            <p id="discordEmail"></p>
+            <p id="discordUserId"></p>
+        </div>
+    </div>
+ 
+    <button class="login-btn bg-blue-500 text-white px-4 py-2 rounded-md w-full"
+            onclick="window.location.href='placehold/auth/discord'">
+        Login with Discord
+    </button>
+    <!-- Dashboard button -->
+    <!--<button id="dashboardBtn" class="dashboard-btn w-full hidden"
+            onclick="redirectToDashboard()">
+        Dashboard
+    </button>
+</div> -->
+
+<div class="container mx-auto p-5">
+    <h1 class="text-3xl font-semibold mb-5">Latest News</h1>
+    <button class="bg-blue-500 text-white px-4 py-2 rounded-md mb-5" onclick="toggleSidebar()">Open Sidebar</button>
+    <div id="newsContainer"></div>
+</div>
+
+<script>
+    
+    function toggleSidebar() {
+        const sidebar = document.querySelector('.sidebar');
+        sidebar.classList.toggle('show');
+
+
+        const userIdToUse = getCookie('userId') || urlParams.get('userId');
+        if (userIdToUse && sidebar.classList.contains('show')) {
+            fetchProfile(userIdToUse);
+        } else {
+      
+            const profileCard = document.getElementById('profileCard');
+            profileCard.style.display = 'none';
+        }
+    }
+
+
+function fetchProfile(userId) {
+    fetch('placehold/api/user/' + userId)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+
+            const profileCard = document.getElementById('profileCard');
+            profileCard.style.display = 'block';
+
+
+            document.getElementById('profilePicture').src = data.avatarUrl;
+            document.getElementById('profileName').textContent = `Hello, ${data.username}!`;
+            document.getElementById('discordEmail').textContent = `Email: ${data.email}`;
+            document.getElementById('discordUserId').textContent = `User ID: ${data.userId}`;
+
+
+            const dashboardBtn = document.getElementById('dashboardBtn');
+            dashboardBtn.style.display = data.authorized === 1 ? 'block' : 'true';
+        })
+        .catch(error => console.error('Error fetching profile:', error));
+}
+
+
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const userId = urlParams.get('userId');
+
+
+    if (userId) {
+        document.cookie = `userId=${userId}; path=/`;
+    }
+
+
+    function getCookie(name) {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${name}=`);
+        if (parts.length === 2) return parts.pop().split(';').shift();
+    }
+
+
+    function redirectToDashboard() {
+        const userId = getCookie('userId') || urlParams.get('userId');
+        if (userId) {
+            window.location.href = `dashboard/?userId=${userId}`;
+        }
+    }
+
+    // Fetch news articles from the backend
+    fetch('placeholdapi/news')
+        .then(response => response.json())
+        .then(data => {
+            // Call a function to render the news articles
+            renderNews(data);
+        })
+        .catch(error => console.error('Error fetching news:', error));
+
+    function renderNews(articles) {
+        const newsContainer = document.getElementById('newsContainer');
+        newsContainer.innerHTML = '';
+
+        articles.forEach(article => {
+            const articleDiv = document.createElement('div');
+            articleDiv.classList.add('article');
+
+            articleDiv.innerHTML = `
+            <h2>${article.title}</h2>
+            <p>${article.description}</p>
+        `;
+
+            newsContainer.appendChild(articleDiv);
+        });
+    }
+</script>
+</body>
+
+</html>
