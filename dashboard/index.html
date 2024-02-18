@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-image: url('https://kastryware.devpage.me/about/kastry/images/star.gif');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            width: 80%;
+            max-width: 800px;
+            padding: 20px;
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .form-container {
+            width: 100%;
+        }
+
+        .form-container input,
+        .form-container textarea,
+        .form-container button {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .posts-container {
+            width: 100%;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1 class="text-3xl font-semibold mb-5">Dashboard</h1>
+        <div class="form-container">
+            <div class="mb-5">
+                <label for="title" class="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                <input type="text" id="title" name="title" class="mt-1 p-2 border border-gray-300 rounded-md w-full">
+            </div>
+            <div class="mb-5">
+                <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea id="description" name="description" rows="3" class="mt-1 p-2 border border-gray-300 rounded-md w-full"></textarea>
+            </div>
+            <button onclick="sendToWebhook()" class="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700">Send to Discord</button>
+            <button onclick="addPost()" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">Add Post</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2 class="text-2xl font-semibold mb-3">Posts</h2>
+        <div id="newsContainer" class="posts-container"></div>
+    </div>
+
+    <div id="unauthorizedMessage" style="display: none;">
+        placeholder, you're not logged in or have perms to use the dashboard.
+    </div>
+
+
+    <footer class="footer">
+        <p>kastrydev made this lulz</p>
+        <p>follow me on <a href="https://twitter.com/kastrydev">Twitter</a></p>
+    </footer>
+
+
+    <div id="editModal"
+        class="fixed top-0 left-0 w-full h-full bg-gray-800 bg-opacity-50 flex justify-center items-center hidden">
+        <div class="bg-white p-6 rounded-md shadow-md">
+            <h2 class="text-xl font-semibold mb-4">Edit Post</h2>
+            <input type="text" id="editTitle" class="w-full border border-gray-300 rounded-md px-3 py-2 mb-4" placeholder="New Title">
+            <textarea id="editDescription" class="w-full border border-gray-300 rounded-md px-3 py-2 mb-4" rows="3" placeholder="New Description"></textarea>
+            <div class="flex justify-end">
+
+                <button onclick="openEditModal('${article.id}', '${article.title}', '${article.description}')" class="edit-button bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600">Edit</button>
+                <button onclick="closeEditModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md">Cancel</button>
+            </div>
+        </div>
+    </div>
+    <button class="edit-button bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600">Edit</button>
+    <button class="delete-button bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600">Delete</button>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuthorization();
+        });
+    </script>
+
+
+    <script>
+        function checkAuthorization() {
+            console.log('checking auth')
+            const urlParams = new URLSearchParams(window.location.search);
+            const userIdFromUrl = urlParams.get('userId');
+            const userIdFromCookie = getCookie('userId');
+            const userId = userIdFromUrl || userIdFromCookie;
+
+            if (!userId) {
+                console.log("not logged in")
+                handleUnauthorized();
+            } else {
+                fetch(`placehold/api/checkStaffAccess/${userId}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.authorized === true) {
+                            console.log('authorized')
+                            enableDashboard();
+                        } else {
+                            handleUnauthorized();
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching user data:', error);
+                        handleUnauthorized();
+                    });
+            }
+        }
+
+        function handleUnauthorized() {
+            const dashboardElements = document.querySelectorAll('.container');
+            dashboardElements.forEach(element => {
+                element.style.display = 'none';
+            });
+
+            const unauthorizedMessage = document.getElementById('unauthorizedMessage');
+            unauthorizedMessage.style.display = 'block';
+        }
+
+        function enableDashboard() {
+            const dashboardElements = document.querySelectorAll('.container');
+            dashboardElements.forEach(element => {
+                element.style.display = 'block';
+            });
+
+            const unauthorizedMessage = document.getElementById('unauthorizedMessage');
+            unauthorizedMessage.style.display = 'none';
+        }
+
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+        }
+
+        function addPost() {
+            const unauthorizedMessage = document.getElementById('unauthorizedMessage');
+            if (unauthorizedMessage.style.display === 'block') {
+                alert('You are not authorized to perform this action.');
+                return;
+            }
+
+            const title = document.getElementById('title').value;
+            const description = document.getElementById('description').value;
+
+            if (title.trim() === '' || description.trim() === '') {
+                alert('Please fill in both title and description fields.');
+                return;
+            }
+
+            const articleData = {
+                title: title,
+                description: description
+            };
+
+            fetch('placehold/api/news', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(articleData)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    fetchNews();
+                    document.getElementById('title').value = '';
+                    document.getElementById('description').value = '';
+                })
+                .catch(error => console.error('Error adding post:', error));
+        }
+
+        fetchNews();
+
+        function fetchNews() {
+            const unauthorizedMessage = document.getElementById('unauthorizedMessage');
+            if (unauthorizedMessage.style.display === 'block') {
+                alert('You are not authorized to perform this action.');
+                return;
+            }
+
+            fetch('https://bd77c718-4926-4ca8-b79f-6ea766031129-00-2zucph95v4muq.riker.replit.dev/api/news')
+                .then(response => response.json())
+                .then(data => {
+                    renderNews(data);
+                })
+                .catch(error => console.error('Error fetching news:', error));
+        }
+
+        function renderNews(articles) {
+            let newsContainer = document.getElementById('newsContainer');
+            if (!newsContainer) {
+                newsContainer = document.createElement('div');
+                newsContainer.id = 'newsContainer';
+                document.body.appendChild(newsContainer);
+            }
+            newsContainer.innerHTML = '';
+
+            articles.forEach(article => {
+                const articleDiv = document.createElement('div');
+                articleDiv.classList.add('article', 'border', 'rounded-md', 'p-4', 'mb-4');
+
+                const articleIdElement = document.createElement('div');
+                articleIdElement.textContent = `ID: ${article.id}`;
+                articleIdElement.style.float = 'right';
+                articleIdElement.style.color = 'grey';
+                articleDiv.appendChild(articleIdElement);
+
+                const titleElement = document.createElement('h2');
+                titleElement.textContent = article.title;
+                titleElement.classList.add('text-xl', 'font-semibold', 'mb-2');
+                articleDiv.appendChild(titleElement);
+
+                const descriptionElement = document.createElement('p');
+                const maxLength = 100;
+                descriptionElement.textContent = article.description.length > maxLength ? article.description.substring(0, maxLength) +
+                    '...' : article.description;
+                descriptionElement.classList.add('text-gray-600');
+                articleDiv.appendChild(descriptionElement);
+
+                const buttonContainer = document.createElement('div');
+                buttonContainer.classList.add('flex', 'justify-between', 'mt-2');
+
+                const editButton = document.createElement('button');
+                editButton.dataset.articleId = article.id;
+                editButton.textContent = 'Edit';
+                editButton.classList.add('edit-button', 'bg-blue-500', 'text-white', 'px-3', 'py-1', 'rounded-md', 'hover:bg-blue-600');
+                buttonContainer.appendChild(editButton);
+
+                const deleteButton = document.createElement('button');
+                deleteButton.textContent = 'Delete';
+                deleteButton.classList.add('delete-button', 'bg-red-500', 'text-white', 'px-3', 'py-1', 'rounded-md',
+                    'hover:bg-red-600');
+                buttonContainer.appendChild(deleteButton);
+
+                articleDiv.appendChild(buttonContainer);
+
+                newsContainer.appendChild(articleDiv);
+
+                editButton.addEventListener('click', () => openEditModal(article.id));
+
+                deleteButton.addEventListener('click', () => deletePost(article.id));
+            });
+        }
+
+        function openEditModal(articleId) {
+            const editModal = document.getElementById('editModal');
+            const editTitleInput = document.getElementById('editTitle');
+            const editDescriptionInput = document.getElementById('editDescription');
+
+            fetch(`placehold/api/news/specific/${articleId}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(article => {
+                    editTitleInput.value = article.title;
+                    editDescriptionInput.value = article.description;
+
+                    editModal.classList.remove('hidden');
+                })
+                .catch(error => console.error('Error fetching article:', error));
+        }
+
+        function saveChanges(articleId) {
+            const editTitleInput = document.getElementById('editTitle');
+            const editDescriptionInput = document.getElementById('editDescription');
+            const newTitle = editTitleInput.value;
+            const newDescription = editDescriptionInput.value;
+            fetch(`placehold/api/news/${articleId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ title: newTitle, description: newDescription })
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    closeEditModal();
+                    fetchNews();
+                })
+                .catch(error => console.error('Error updating post:', error));
+        }
+
+        function closeEditModal() {
+            const editModal = document.getElementById('editModal');
+            editModal.classList.add('hidden');
+        }
+
+        function deletePost(articleId) {
+            const confirmed = window.confirm('Are you sure you want to delete this post?');
+            if (confirmed) {
+                fetch(`placehold/api/news/${articleId}`, {
+                    method: 'DELETE'
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    fetchNews();
+                })
+                .catch(error => console.error('Error deleting post:', error));
+            }
+        }
+
+        function handleEditButtonClick(event) {
+            const articleId = event.target.dataset.articleId;
+            openEditModal(articleId);
+        }
+
+        function handleDeleteButtonClick(event) {
+            const articleId = event.target.dataset.articleId;
+            deletePost(articleId);
+        }
+
+        document.addEventListener('click', function(event) {
+            if (event.target && event.target.matches('.edit-button')) {
+                handleEditButtonClick(event);
+            } else if (event.target && event.target.matches('.delete-button')) {
+                handleDeleteButtonClick(event);
+            }
+        });
+
+        function sendToWebhook() {
+            const title = document.querySelector("#title").value;
+            const description = document.querySelector("#description").value;
+            const urlParams = new URLSearchParams(window.location.search);
+            const userIdFromUrl = urlParams.get('userId');
+            const userIdFromCookie = getCookie('userId');
+            const userId = userIdFromUrl || userIdFromCookie;
+            const poster = `<@${userId}>`;
+
+            const discordPayload = {
+                content: null,
+                embeds: [{
+                    title: "New Post",
+                    description: `**Title:** ${title}\n**Description:** ${description}\n**Poster:** ${poster}`,
+                    color: 5793266
+                }]
+            };
+
+            fetch('placehold', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(discordPayload),
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to send data to Discord webhook');
+                }
+                console.log('Data sent to Discord webhook successfully.');
+            })
+            .catch(error => {
+                console.error('Error sending data to Discord webhook:', error);
+            });
+        }
+
+    </script>
+</body>
+
+</html>
